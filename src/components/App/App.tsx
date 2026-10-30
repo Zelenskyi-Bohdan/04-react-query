@@ -1,24 +1,33 @@
 import { useState, useEffect } from 'react';
+import type { ComponentType } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import ReactPaginateModule from "react-paginate";
+import type { ReactPaginateProps } from "react-paginate";
 import toast from 'react-hot-toast';
 import { fetchMovies } from '../../services/movieService.ts';
 import type { Movie } from '../../types/movie.ts';
 import SearchBar from '../SearchBar/SearchBar.tsx';
 import MovieGrid from '../MovieGrid/MovieGrid.tsx';
-import Pagination from '../Pagination/Pagination.tsx';
 import Loader from '../Loader/Loader.tsx';
 import ErrorMessage from '../ErrorMessage/ErrorMessage.tsx';
 import MovieModal from '../MovieModal/MovieModal.tsx';
+import css from './App.module.css';
+
+type ModuleWithDefault<T> = { default: T };
+
+const ReactPaginate = (
+  ReactPaginateModule as unknown as ModuleWithDefault<ComponentType<ReactPaginateProps>>
+).default;
 
 function App() {
-    const [query, setQuery] = useState<string | null>(null);
+    const [query, setQuery] = useState<string>("");
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [page, setPage] = useState(1);
 
-    const { data, isLoading, isError, isSuccess } = useQuery({
+    const { data, isError, isLoading, isSuccess } = useQuery({
         queryKey: ['movies', query, page],
         queryFn: () => fetchMovies(query!, page),
-        enabled: query !== null,
+        enabled: query !== "",
         placeholderData: keepPreviousData,
     });
 
@@ -45,15 +54,22 @@ function App() {
                         <MovieGrid movies={data.results} onSelect={setSelectedMovie}/>
                         
                     {data.total_pages > 1 &&
-                        <Pagination
-                          currentPage={page}
-                          onPageChange={setPage}
-                          totalPages={data.total_pages}
-                    />}
+                        <ReactPaginate
+                          pageCount={data.total_pages}
+                          pageRangeDisplayed={5}
+                          marginPagesDisplayed={1}
+                          onPageChange={({ selected }) => setPage(selected + 1)}
+                          forcePage={page  - 1}
+                          containerClassName={css.pagination}
+                          activeClassName={css.active}
+                          nextLabel="→"
+                          previousLabel="←"
+                        />
+                    }
                 </>
                 }
 
-                {isLoading && <Loader />}
+                {!isSuccess && isLoading && <Loader />}
 
                 {selectedMovie && (
                     <MovieModal
