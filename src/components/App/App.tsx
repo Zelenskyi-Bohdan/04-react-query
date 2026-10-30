@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { fetchMovies } from '../../services/movieService.ts';
 import type { Movie } from '../../types/movie.ts';
@@ -9,48 +10,45 @@ import ErrorMessage from '../ErrorMessage/ErrorMessage.tsx';
 import MovieModal from '../MovieModal/MovieModal.tsx';
 
 function App() {
-    const [movies, setMovies] = useState<Movie[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isError, setIsError] = useState(false);
+    const [query, setQuery] = useState<string | null>(null);
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
 
-    const handleSubmit = async (query: string) => {
-        setIsLoading(true);
-        setIsError(false);
+    const { data, isLoading, isError, isSuccess } = useQuery({
+        queryKey: ['movies', query],
+        queryFn: () => fetchMovies(query!),
+        enabled: query !== null
+    });
+
+    const handleSubmit = (query: string) => {
         setSelectedMovie(null);
-
-
-        try {
-            const moviesData = await fetchMovies(query);
-
-            if (moviesData.length === 0) {
-                toast.error('No movies found for your request.');
-            }
-            setMovies(moviesData);
-        } catch {
-            setIsError(true);
-            setMovies([]);
-        } finally {
-            setIsLoading(false);
-        }
+        
+        setQuery(query);
     }
 
-    return (
-        <>
-            <SearchBar onSubmit={handleSubmit} />
-            {isError ?
-                <ErrorMessage /> :
-                <MovieGrid movies={movies} onSelect={setSelectedMovie} />
-            }
-            {isLoading && <Loader />}
-            {selectedMovie && (
-                <MovieModal
-                    movie={selectedMovie}
-                    onClose={() => setSelectedMovie(null)}
-                />
-            )}
-        </>
-    );
-}
+    useEffect(() => {
+        if (data?.length === 0) {
+            toast.error('No movies found for your request.');
+        }
+    }, [data]);
+
+        return (
+            <>
+                <SearchBar onSubmit={handleSubmit} />
+
+                {isError && <ErrorMessage />}
+
+                {isSuccess && <MovieGrid movies={data} onSelect={setSelectedMovie} />}
+
+                {isLoading && <Loader />}
+
+                {selectedMovie && (
+                    <MovieModal
+                        movie={selectedMovie}
+                        onClose={() => setSelectedMovie(null)}
+                    />
+                )}
+            </>
+        );
+    }
 
 export default App;
